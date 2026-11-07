@@ -1,0 +1,18 @@
+import {useState} from 'react'
+import {Plus,Pencil,Trash2} from 'lucide-react'
+import {useDB} from '../store'
+import {Btn,Card,PageHeader,Badge,Table,Sel,SearchBox,FormModal,Modal,go,Info,Confirm} from '../ui'
+import {jobStats,byId,fmtDate} from '../lib'
+export default function Employers({id}){const {db,save,remove}=useDB(),[q,setQ]=useState(''),[co,setCo]=useState(''),[m,setM]=useState(null),[sel,setSel]=useState(id||null),[del,setDel]=useState(null)
+const rows=db.employers.filter(e=>(!q||(e.name+e.contact).toLowerCase().includes(q.toLowerCase()))&&(!co||e.country===co))
+const f=[{k:'name',l:'Company name',req:1},{k:'country',l:'Country',t:'select',opts:db.settings.countries,req:1},{k:'city',l:'City',req:1},{k:'contact',l:'Contact person',req:1},{k:'email',l:'Email',t:'email',req:1},{k:'phone',l:'Phone / WhatsApp',req:1},{k:'agreementStatus',l:'Agreement status',t:'select',opts:['Active','Pending','Expired'],req:1},{k:'agreementDate',l:'Agreement date',t:'date'},{k:'notes',l:'Agreement notes',t:'textarea',span:1}]
+const e=sel&&byId(db.employers,sel),jobs=e?db.jobs.filter(j=>j.employerId===e.id):[]
+const deployed=e?db.applications.filter(a=>a.stage==='Deployed'&&jobs.some(j=>j.id===a.jobId)).length:0
+return <><PageHeader title="Foreign Employers" sub={`${db.employers.length} partner companies`}><Btn icon={Plus} onClick={()=>setM({agreementStatus:'Pending'})}>Add employer</Btn></PageHeader>
+<Card pad={false}><div className="flex flex-wrap gap-2 border-b border-slate-100 p-3"><SearchBox value={q} onChange={setQ}/><Sel className="!w-40" all="All countries" value={co} onChange={setCo} options={db.settings.countries}/></div>
+<Table rows={rows} onRow={r=>setSel(r.id)} cols={[{h:'Company',r:r=><div className="font-medium text-slate-900">{r.name}</div>},{h:'Location',r:r=>`${r.city}, ${r.country}`},{h:'Contact',r:r=><><div>{r.contact}</div><div className="text-xs text-slate-500">{r.email}</div></>},{h:'Job orders',r:r=>db.jobs.filter(j=>j.employerId===r.id).length},{h:'Agreement',r:r=><Badge>{r.agreementStatus}</Badge>},{h:'',r:r=><div className="flex gap-1" onClick={x=>x.stopPropagation()}><Btn v="ghost" icon={Pencil} onClick={()=>setM(r)}/><Btn v="ghost" icon={Trash2} onClick={()=>setDel(r)}/></div>}]}/></Card>
+{e&&<Modal drawer title={e.name} onClose={()=>setSel(null)}><Info items={[['Country',e.country],['City',e.city],['Contact person',e.contact],['Email',e.email],['Phone',e.phone],['Agreement',e.agreementStatus+' · '+fmtDate(e.agreementDate)],['Notes',e.notes]]}/>
+<h4 className="mb-2 mt-6 text-sm font-semibold">Job orders ({jobs.length})</h4><ul className="divide-y divide-slate-100 rounded-lg border border-slate-200">{jobs.map(j=><li key={j.id} onClick={()=>{setSel(null);go('jobs/'+j.id)}} className="flex cursor-pointer items-center justify-between px-3 py-2.5 text-sm hover:bg-slate-50"><div><div className="font-medium">{j.title}</div><div className="text-xs text-slate-500">{jobStats(db,j).remaining}/{j.vacancies} vacancies open</div></div><Badge>{j.status}</Badge></li>)}</ul>
+<h4 className="mb-2 mt-6 text-sm font-semibold">Recruitment history</h4><p className="text-sm text-slate-600">{deployed} workers deployed · {jobs.reduce((a,j)=>a+j.vacancies,0)} total positions requested · Since {fmtDate(e.agreementDate)}</p></Modal>}
+{m&&<FormModal title={m.id?'Edit employer':'Add employer'} fields={f} initial={m} onClose={()=>setM(null)} onSave={v=>save('employers',v,'E',m.id?`Employer ${v.name} updated`:`Employer ${v.name} added`)}/>}
+{del&&<Confirm msg={`Delete ${del.name}?`} onClose={()=>setDel(null)} onYes={()=>remove('employers',del.id,`Employer ${del.name} deleted`)}/>}</>}
